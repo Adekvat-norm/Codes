@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Учёт камер видеонаблюдения</title>
+	<button id="exportWord">Экспорт в Word (.docx)</button>
+	<button id="exportCSV">Экспорт в CSV</button>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+     <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #333; }
+        .camera-card { border: 1px solid #ddd; border-radius: 6px; padding: 15px; margin-bottom: 15px; background: #fafafa; }
+        .camera-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .camera-type { font-weight: bold; color: #2c3e50; }
+        .form-group { margin-bottom: 10px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input, textarea { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { resize: vertical; min-height: 60px; }
+        .save-btn { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-top: 10px; }
+        .save-btn:hover { background: #2980b9; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Учёт камер видеонаблюдения (39 камер)</h1>
+	<h1>Пароль: Zxcqwerty_67</h1>
+        <div id="cameras-container"></div>
+    </div>
+
+    <script>
+        // Конфигурация камер: всего 26 камер (ID 1-26)
+        const CAMERA_CONFIG = [
+            { type: 'Тип 1', count: 34 },
+            { type: 'Тип 2', count: 4 },
+            { type: 'Тип 3', count: 1 }
+        ];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCameras();
+        });
+
+        function loadCameras() {
+            let cameras = JSON.parse(localStorage.getItem('cameras')) || [];
+            if (cameras.length === 0) {
+                cameras = createInitialCameras();
+                saveCameras(cameras);
+            }
+            renderCameras(cameras);
+        }
+
+
+        function createInitialCameras() {
+            const cameras = [];
+            let idCounter = 1;
+            let ipCounter = 7; // начинаем с 192.168.11.7
+
+            CAMERA_CONFIG.forEach(config => {
+                for (let i = 1; i <= config.count; i++) {
+                    cameras.push({
+                        id: idCounter++,
+                        type: config.type,
+                        ip: `192.168.11.${ipCounter}`,
+                        mask: '255.255.0.0', // начальное значение маски
+                        gateway: '0.0.0.0',   // начальное значение шлюза
+			note: '' // Пустое примечание по умолчанию
+                    });
+                    ipCounter++;
+                }
+            });
+            return cameras;
+        }
+
+        function renderCameras(cameras) {
+            const container = document.getElementById('cameras-container');
+            container.innerHTML = '';
+            cameras.forEach(camera => {
+                const card = createCameraCard(camera);
+                container.appendChild(card);
+            });
+        }
+function createCameraCard(camera) {
+    const card = document.createElement('div');
+    card.className = 'camera-card';
+    card.innerHTML = `
+        <div class="camera-header">
+            <span class="camera-type">${camera.type} (ID: ${camera.id})</span>
+        </div>
+        <div class="form-group">
+            <label for="ip-${camera.id}">Номер:</label>
+            <input type="text" id="ip-${camera.id}" value="${camera.ip}" placeholder="192.168.11.x">
+        </div>
+        <div class="form-group">
+            <label for="mask-${camera.id}">Маска подсети:</label>
+            <input type="text" id="mask-${camera.id}" value="${camera.mask}" placeholder="255.255.0.0">
+        </div>
+        <div class="form-group">
+            <label for="gateway-${camera.id}">Шлюз:</label>
+            <input type="text" id="gateway-${camera.id}" value="${camera.gateway}" placeholder="0.0.0.0">
+        </div>
+        <div class="form-group">
+            <label for="note-${camera.id}">Примечание:</label>
+            <textarea id="note-${camera.id}" placeholder="Введите примечание для камеры">${camera.note}</textarea>
+        </div>
+        <button class="save-btn" onclick="saveCamera(${camera.id})">Сохранить</button>
+    `;
+    return card;
+}
+       function saveCamera(cameraId) {
+    const cameras = JSON.parse(localStorage.getItem('cameras'));
+    const camera = cameras.find(c => c.id === cameraId);
+    if (camera) {
+        camera.ip = document.getElementById(`ip-${camera.id}`).value;
+        camera.mask = document.getElementById(`mask-${camera.id}`).value;
+        camera.gateway = document.getElementById(`gateway-${camera.id}`).value;
+        camera.note = document.getElementById(`note-${camera.id}`).value; // Сохраняем примечание
+        saveCameras(cameras);
+        alert(`Камера ID ${cameraId} сохранена!`);
+    }
+}
+
+        function saveCameras(cameras) {
+            localStorage.setItem('cameras', JSON.stringify(cameras));
+        }
+
+// Функция экспорта в CSV
+function exportToCSV() {
+    // Получаем камеры из localStorage
+    const cameras = JSON.parse(localStorage.getItem('cameras'));
+    if (!cameras) return alert('Нет данных для экспорта!');
+
+    let csv = 'ID,Тип,IP-адрес,Маска подсети,Шлюз, Примечание\n'; // Шапка таблицы
+
+    cameras.forEach(camera => {
+        csv += `${camera.id},${camera.type},${camera.ip},${camera.mask},${camera.gateway},{camera.note}\n`;
+    });
+
+    // Создаём ссылку для скачивания
+    const blob = new Blob([csv], {type: 'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'камеры.csv';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+}
+
+function exportToWord() {
+    const cameras = JSON.parse(localStorage.getItem('cameras'));
+    if (!cameras) return alert('Нет данных для экспорта!');
+
+    // Собираем HTML-таблицу с данными
+    let tableHTML = `<table border="1" style="border-collapse: collapse; width: 100%;">
+        <thead>
+            <tr style="background-color: #f2f2f2;">
+                <th style="border: 1px solid #ddd; padding: 8px;">Номер</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Тип</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">IP-адрес</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Маска подсети</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Шлюз</th>
+		<th style="border: 1px solid #ddd; padding: 8px;">Примечание</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    cameras.forEach(camera => {
+        tableHTML += `<tr>
+            <td style="border: 1px solid #ddd; padding: 8px;">${camera.id}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${camera.type}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${camera.ip}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${camera.mask}</td>
+            <td style="border: 1px solid #ddd; padding: 8px;">${camera.gateway}</td>
+	<td style="border: 1px solid #ddd; padding: 8px;">${camera.note}</td>	
+        </tr>`;
+    });
+
+    tableHTML += `</tbody></table>`;
+
+    // Создаём временный элемент для рендеринга
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = tableHTML;
+    wrapper.style.padding = '20px';
+    document.body.appendChild(wrapper);
+
+    html2canvas(wrapper, {
+        scale: 2,
+        useCORS: true
+    }).then(canvas => {
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+
+        // Рассчитываем размеры для корректного отображения
+        const imgWidth = 190;
+        const pageHeight = 295;
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
+
+        pdf.save('камеры.pdf');
+        document.body.removeChild(wrapper); // Удаляем временный элемент
+    }).catch(error => {
+        console.error('Ошибка при экспорте в PDF:', error);
+        alert('Произошла ошибка при создании PDF-файла');
+    });
+}
+
+
+// Привязываем события к кнопкам
+document.getElementById('exportCSV').addEventListener('click', exportToCSV);
+document.getElementById('exportWord').addEventListener('click', exportToWord);
+
+    </script>
+</body>
+</html>

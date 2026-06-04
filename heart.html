@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Сердце из искр - из центра к краям</title>
+
+<style>
+*{
+    margin:0;    
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    display: flex;
+    justify-content:center;
+    align-items:center;
+    min-height:100vh;
+    background:radial-gradient(circle at center, #1f1f1f,#000);
+    overflow:hidden;
+}
+.container{
+    position:relative;
+    width:800px;
+    height:800px;
+}
+svg{
+    width:100%;
+    height:100%;
+    filter:drop-shadow(0 0 20px rgba(255,45,85,0.3));
+}
+.heart-outline{
+    fill:none;
+    stroke:#ff5a7a;
+    stroke-width:3;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    stroke-dasharray:800;
+    stroke-dashoffset:800;
+    animation:drawHeart 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+.heart-fill{
+    fill:#ff2d55;
+    opacity:0;
+    filter:drop-shadow(0 0 20px #ff2d55);
+}
+.spark-particle{
+    position:absolute;
+    width:5px;
+    height:5px;
+    border-radius:50%;
+    background:#ff9dc1;
+    box-shadow:0 0 10px #fff, 0 0 15px #ff2d55;
+    pointer-events:none;
+    opacity:0;
+    z-index:20;
+}
+@keyframes drawHeart{
+    to{
+        stroke-dashoffset:0;
+    }
+}
+@keyframes fillHeartAnim{
+    0%{
+        opacity:0;
+        transform:scale(0.5);
+    }
+    100%{
+        opacity:1;
+        transform:scale(1);
+    }
+}
+@keyframes sparkFromCenter{
+    0%{
+        transform:translate(300px, 260px) scale(1);
+        opacity:1;
+    }
+    100%{
+        transform:translate(var(--targetX), var(--targetY)) scale(0);
+        opacity:0;
+    }
+}
+@keyframes finalGlow{
+    0%,100%{
+        filter:drop-shadow(0 0 20px #ff2d55);
+    }
+    50%{
+        filter:drop-shadow(0 0 50px #ff5a7a);
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+    <svg viewBox="0 0 200 200">
+        <defs>
+            <radialGradient id="heartGlow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" style="stop-color:#ff5a7a;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#ff1a44;stop-opacity:1" />
+            </radialGradient>
+        </defs>
+        
+        <!-- Контур сердца -->
+        <path class="heart-outline" stroke="url(#heartGlow)"
+            d="M100 170 
+               C100 170, 20 120, 20 70 
+               C20 40, 45 20, 70 20 
+               C85 20, 95 30, 100 45 
+               C105 30, 115 20, 130 20 
+               C155 20, 180 40, 180 70 
+               C180 120, 100 170, 100 170Z"/>
+        
+        <!-- Заливка сердца -->
+        <path class="heart-fill" fill="url(#heartGlow)"
+            d="M100 170 
+               C100 170, 20 120, 20 70 
+               C20 40, 45 20, 70 20 
+               C85 20, 95 30, 100 45 
+               C105 30, 115 20, 130 20 
+               C155 20, 180 40, 180 70 
+               C180 120, 100 170, 100 170Z"/>
+    </svg>
+</div>
+
+<script>
+const container = document.querySelector('.container');
+const heartFill = document.querySelector('.heart-fill');
+
+// Функция для получения координат на границе сердца в зависимости от угла
+function getHeartEdgePoint(centerX, centerY, angle) {
+    // Сердце в координатах от 0 до 200, масштабируем
+    const t = angle;
+    // Параметрическое уравнение сердца
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+    
+    // Масштабируем до размера сердца (примерно 100px в ширину и 90px в высоту)
+    const scaleX = 90;
+    const scaleY = 85;
+    
+    let finalX = centerX + x * scaleX;
+    let finalY = centerY - y * scaleY;
+    
+    return { x: finalX, y: finalY };
+}
+
+// Создаём искру, летящую из центра к точке на границе сердца
+function createSparkToEdge(angle, delay, distance) {
+    setTimeout(() => {
+        const spark = document.createElement('div');
+        spark.className = 'spark-particle';
+        
+        const centerX = 300;
+        const centerY = 260;
+        
+        // Получаем точку на границе сердца
+        const target = getHeartEdgePoint(centerX, centerY, angle);
+        
+        // Добавляем случайное смещение для создания объёма
+        const offsetX = (Math.random() - 0.5) * 40;
+        const offsetY = (Math.random() - 0.5) * 40;
+        
+        spark.style.setProperty('--targetX', `${target.x + offsetX}px`);
+        spark.style.setProperty('--targetY', `${target.y + offsetY}px`);
+        
+        spark.style.left = '0px';
+        spark.style.top = '0px';
+        spark.style.transform = `translate(300px, 260px)`;
+        
+        const duration = 0.6 + Math.random() * 0.4;
+        spark.style.animation = `sparkFromCenter ${duration}s cubic-bezier(0.2, 0.9, 0.4, 1.1) forwards`;
+        
+        container.appendChild(spark);
+        
+        setTimeout(() => spark.remove(), duration * 1000);
+    }, delay);
+}
+
+// Создаём волны искр, расширяющиеся от центра
+function createExpandingWave(radius, delay, count) {
+    for(let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const distance = radius;
+        // Искры летят не только к границе, но и заполняют внутренность
+        const innerOffset = radius * 0.7;
+        const finalDistance = innerOffset + Math.random() * (radius - innerOffset);
+        
+        createSparkToEdge(angle + Math.random() * 0.2, delay + i * 15, finalDistance);
+    }
+}
+
+// Рисуем контур сердца
+// Затем постепенно заполняем искрами от центра к краям
+
+// Первая волна - центр (самые внутренние искры)
+for(let i = 0; i < 30; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 20 + Math.random() * 30;
+    createSparkToEdge(angle, 2100 + i * 20, radius);
+}
+
+// Вторая волна - средний круг
+setTimeout(() => {
+    for(let i = 0; i < 45; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        createSparkToEdge(angle, i * 15, 50 + Math.random() * 30);
+    }
+}, 2300);
+
+// Третья волна - расширение к краям
+setTimeout(() => {
+    for(let i = 0; i < 60; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        createSparkToEdge(angle, i * 12, 80 + Math.random() * 40);
+    }
+}, 2800);
+
+// Четвёртая волна - самые дальние края сердца
+setTimeout(() => {
+    for(let i = 0; i < 50; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        createSparkToEdge(angle, i * 10, 110 + Math.random() * 30);
+    }
+}, 3400);
+
+// Пятая волна - добиваем оставшиеся места
+setTimeout(() => {
+    for(let i = 0; i < 40; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        createSparkToEdge(angle, i * 12, 60 + Math.random() * 80);
+    }
+}, 4000);
+
+// После всех искр - появляется заливка сердца
+setTimeout(() => {
+    heartFill.style.animation = 'fillHeartAnim 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards';
+    heartFill.style.animationFillMode = 'forwards';
+    
+    // Финальное свечение
+    document.querySelector('.container').style.animation = 'finalGlow 1.5s ease-in-out 3';
+    
+    // Финальный аккорд - искры вылетают из готового сердца
+    for(let i = 0; i < 60; i++) {
+        setTimeout(() => {
+            const spark = document.createElement('div');
+            spark.className = 'spark-particle';
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 80 + Math.random() * 120;
+            const x = Math.cos(angle) * distance;
+            const y = Math.sin(angle) * distance;
+            
+            spark.style.left = '300px';
+            spark.style.top = '260px';
+            spark.style.setProperty('--targetX', `${300 + x}px`);
+            spark.style.setProperty('--targetY', `${260 + y}px`);
+            spark.style.animation = `sparkFromCenter 0.7s ease-out forwards`;
+            spark.style.boxShadow = '0 0 15px #ff9dc1, 0 0 25px #ff2d55';
+            
+            container.appendChild(spark);
+            setTimeout(() => spark.remove(), 800);
+        }, i * 15);
+    }
+}, 4700);
+</script>
+
+</body>
+</html>
